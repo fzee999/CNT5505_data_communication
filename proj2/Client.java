@@ -1,12 +1,14 @@
 // A Java program for a Client
 import java.io.*;
 import java.net.*;
+import java.util.Scanner;
 
 public class Client {
 	// initialize socket and input output streams
 	private Socket socket = null;
-	private DataInputStream input = null;
-	private DataOutputStream out = null;
+	private Scanner client_input = null;
+	private DataInputStream server_input = null;
+	private DataOutputStream client_output = null;
 
 	// constructor to put ip address and port
 	public Client(String address, int port)
@@ -17,10 +19,59 @@ public class Client {
 			System.out.println("Connected");
 
 			// takes input from terminal
-			input = new DataInputStream(System.in);
+			client_input = new Scanner(System.in);
+
+			//input from server
+			server_input = new DataInputStream(socket.getInputStream());
 
 			// sends output to the socket
-			out = new DataOutputStream(socket.getOutputStream());
+			client_output = new DataOutputStream(socket.getOutputStream());
+
+			// sendMessage thread 
+			Thread sendMessage = new Thread(new Runnable()  
+			{ 
+				@Override
+				public void run() { 
+					synchronized (this){
+						while (true) { 
+							try { 
+								// read the message to deliver. 
+								String msg = client_input.nextLine(); 
+								// write on the output stream 
+								client_output.writeUTF(msg); 
+							} catch (IOException e) { 
+								e.printStackTrace(); 
+							} 
+						} 
+					}
+					
+				} 
+			}); 
+			  
+			// readMessage thread 
+			Thread readMessage = new Thread(new Runnable()  
+			{ 
+				@Override
+				public void run() { 
+					synchronized(this){
+						while (true) { 
+							try { 
+								// read the message sent to this client 
+								String msg = server_input.readUTF(); 
+								System.out.println(msg); 
+							} catch (IOException e) { 
+		
+								e.printStackTrace(); 
+							} 
+						} 
+					}
+					
+				} 
+			}); 
+	  
+			sendMessage.start(); 
+			readMessage.start(); 
+
 		}
 		catch (UnknownHostException u) {
 			System.out.println(u);
@@ -30,32 +81,7 @@ public class Client {
 			System.out.println(i);
 			return;
 		}
-
-		// string to read message from input
-		String line = "";
-
-		// keep reading until "Over" is input
-		while (!line.equals("Over")) {
-			try {
-				line = input.readUTF();
-				out.writeUTF(line);
-			}
-			catch (IOException i) {
-				System.out.println(i);
-			}
-		}
-
-		// close the connection
-		try {
-			input.close();
-			out.close();
-			socket.close();
-		}
-		catch (IOException i) {
-			System.out.println(i);
-		}
 	}
-
 	public static void main(String args[])
 	{
 		Client client = new Client("127.0.0.1", 5000);
