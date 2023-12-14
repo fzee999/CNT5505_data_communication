@@ -15,6 +15,7 @@ public class Station {
 	private Scanner client_input = null;
 	private ObjectInputStream server_input = null;
 	private ObjectOutputStream client_output = null;
+    private String socket_type = null;
     List<Hostname> hostnames;
     List<RoutingTable> routingTable;
     List<Interface> interfaces;
@@ -28,11 +29,11 @@ public class Station {
             hostnames = FileHandling.loadHostnames();
             routingTable = FileHandling.loadRoutingTable(rtableFileName);
             interfaces = FileHandling.loadInterface(ifaceFileName);
-
             List<Socket> sockets = new ArrayList<>();
 
             //Queue of DATA Packets
             List<DataFrame> dFrameQueue = new ArrayList<>();
+            this.socket_type = type;
 
             //loading interface data structure and sockets
             for(Interface iface:interfaces){
@@ -115,33 +116,38 @@ public class Station {
                                     String binaryDesIP = getBinaryString(desIPAddress);
                                     System.out.println("binary des ip: "+binaryDesIP);
                                     int longestPrefix = getLongestPrefix(binaryDesIP,net_prefixes);
-                                    String next_hop_IP = routingTable.get(longestPrefix).getDesNetworkPrefix();
+                                    String next_hop_IP = routingTable.get(longestPrefix).getNextHopIpAddress();
                                     System.out.println("next hop IP: "+next_hop_IP);
 
                                     // Check if MAC available in arp cache
-                                    // is not send a arp request to next hop IP
-                                    // once get tranfer the packet.
-                                    //if packet des IP is equal to station then display else discard
-                                    //if packet des IP is equal to router then find next hop IP again
-                                     
+                                    // if available setDesMAC
                                     System.out.println(dFrame);
                                     System.out.println(arpCache);
-                                    if (arpCache.size()>0 && arpCache.containsKey(dFrame.getDesIPAddress())) {
-                                        dFrame.setDesMAC(arpCache.get(dFrame.getDesIPAddress()));
+                                    if (next_hop_IP.equals("0.0.0.0")) {
+                                        next_hop_IP = dFrame.getDesIPAddress();
+                                    }
+                                    if (arpCache.size()>0 && arpCache.containsKey(next_hop_IP)) {
+                                        dFrame.setDesMAC(arpCache.get(next_hop_IP));
                                         client_output.writeObject(dFrame);
                                     }
+                                    // else send a arp request to next hop IP
                                     else{
                                         dFrameQueue.add(dFrame);
                                         client_output.reset();
                                         DataFrame arpPacket = new DataFrame();
                                         arpPacket.setType("arprequest");
-                                        arpPacket.setDesIPAddress(dFrame.getDesIPAddress());
+                                        arpPacket.setDesIPAddress(next_hop_IP);
                                         arpPacket.setDesMAC("FF:FF:FF:FF:FF");
                                         arpPacket.setSrcIPAddress(dFrame.getSrcIPAddress());
                                         arpPacket.setSrcMAC(dFrame.getSrcMAC());
                                         System.out.println(arpPacket);
                                         client_output.writeObject(arpPacket); 
                                     }
+                                    // once get tranfer the packet.
+                                    //if packet des IP is equal to station then display else discard
+                                    //if packet des IP is equal to router then find next hop IP again
+                                     
+                                    
                                     
                                 }
                                 else{
@@ -197,6 +203,11 @@ public class Station {
                                         client_output.reset();
                                         client_output.writeObject(dFrame2);
                                     }
+                                }
+                                else if(socket_type.equals("-route") && type.equals("message")){
+                                    //find next hop IP
+                                    //send packet to next hopIP
+                                    //else if 0.0.0.0 send to des or send arp request
                                 }
                                 else{
                                     System.out.println("packet discarded");
