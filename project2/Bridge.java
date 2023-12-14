@@ -28,6 +28,7 @@ public class Bridge
 			server = new ServerSocket(port);
 			System.out.println("Server started");
 			System.out.println(Inet4Address.getLocalHost().getHostAddress().toString());
+			System.out.println(Inet4Address.getLocalHost().getLocalHost().toString());
 			FileHandling.createSymbolicFiles(bridge_name, Inet4Address.getLocalHost().getHostAddress().toString(), server.getLocalPort());
             System.out.println("Port: "+server.getLocalPort());
 			System.out.println("Waiting for a client ...");
