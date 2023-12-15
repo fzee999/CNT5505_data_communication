@@ -27,6 +27,8 @@ public class Station {
     
     List<Socket> sockets = new ArrayList<>();
     HashMap<Socket,ObjectOutputStream> socket_output_map = new HashMap<>();
+    HashMap<Socket,Interface> socket_ip_map = new HashMap<>();
+
     
     //Queue of DATA Packets
     List<DataFrame> dFrameQueue = new ArrayList<>();
@@ -54,7 +56,7 @@ public class Station {
                 System.out.println("Interface: "+iface.getIpAddress()+" "+iface.getBridgeName());
                 // client_output = new ObjectOutputStream(socket.getOutputStream());
 
-                SocketThread sThread = new SocketThread(socket,this);
+                SocketThread sThread = new SocketThread(socket,this,iface);
                 sockets.add(socket);
                 sThread.start();
             }
@@ -374,10 +376,12 @@ class SocketThread extends Thread{
 
     private Socket socket;
     private Station station;
+    private Interface iface;
 
-    public SocketThread(Socket socket,Station station){
+    public SocketThread(Socket socket,Station station,Interface iface){
         this.socket = socket;
         this.station = station;
+        this.iface = iface;
     }
     public void run(){
         try {
@@ -388,6 +392,7 @@ class SocketThread extends Thread{
             // sends output to the socket
 			ObjectOutputStream client_output = new ObjectOutputStream(socket.getOutputStream());
             station.socket_output_map.put(socket, client_output);
+            station.socket_ip_map.put(socket, iface);
 
             //input from server
 			ObjectInputStream server_input = new ObjectInputStream(socket.getInputStream());	
@@ -520,6 +525,7 @@ class SocketThread extends Thread{
                                                         .orElse(-1);
 
                                 // if (dFrame.getDesIPAddress().equals(interfaces.get(0).getIpAddress())) {
+                                System.out.println("IP_index: "+ip_index);
                                 if (ip_index!=-1) {                                    
                                     //Add src mac address to ARPCache
                                     if(!station.arpCache.containsKey(dFrame.getSrcIPAddress())){
@@ -575,16 +581,22 @@ class SocketThread extends Thread{
                                     // else send a arp request to next hop IP
                                     else{
                                         station.dFrameQueue.add(dFrame);
-                                        client_output.reset();
-                                        DataFrame arpPacket = new DataFrame();
-                                        arpPacket.setType("arprequest");
-                                        arpPacket.setDesIPAddress(next_hop_IP);
-                                        arpPacket.setDesMAC("FF:FF:FF:FF:FF");
-                                        arpPacket.setSrcIPAddress(dFrame.getSrcIPAddress());
-                                        arpPacket.setSrcMAC(dFrame.getSrcMAC());
-                                        System.out.println(arpPacket);
-                                        sendDFrameToClients(socket, dFrame, station.socket_output_map);
-                                        // client_output.writeObject(arpPacket); 
+                                        for(Socket s: station.socket_output_map.keySet()){
+                                            if(s!=socket){
+                                                station.socket_output_map.get(s).reset();
+                                                DataFrame arpPacket = new DataFrame();
+                                                arpPacket.setType("arprequest");
+                                                arpPacket.setDesIPAddress(next_hop_IP);
+                                                arpPacket.setDesMAC("FF:FF:FF:FF:FF");
+                                                arpPacket.setSrcIPAddress(station.socket_ip_map.get(s).getIpAddress());
+                                                arpPacket.setSrcMAC(station.socket_ip_map.get(s).getEthernetAddress());
+                                                System.out.println(arpPacket);
+                                                System.out.println("socket map: "+station.socket_output_map);
+                                                // sendDFrameToClients(s, dFrame, station.socket_output_map);
+                                                station.socket_output_map.get(s).writeObject(arpPacket); 
+                                            }
+                                            
+                                        }
                                     }
                                 }
                                 else{

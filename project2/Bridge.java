@@ -130,15 +130,17 @@ class EchoThread extends Thread {
 				}
 				
 				if (dFrame.getType().equalsIgnoreCase("arpreply")) {
-					mac_socket_mapping.put(dFrame.getSrcMAC(), socket);
+					if (!mac_socket_mapping.containsKey(dFrame.getSrcMAC())) {
+						mac_socket_mapping.put(dFrame.getSrcMAC(), socket);
+					}
 					Socket s = mac_socket_mapping.get(dFrame.getDesMAC());
 					sendDframeToClient(s,dFrame);
 				}
 				else if(dFrame.getType().equalsIgnoreCase("arprequest")){
 					if (!mac_socket_mapping.containsKey(dFrame.getSrcMAC())) {
 						mac_socket_mapping.put(dFrame.getSrcMAC(), socket);
-						sendDFrameToClients(dFrame);
 					}
+					sendDFrameToClients(dFrame);
 				}
 				else if(dFrame.getType().equalsIgnoreCase("message")){
 					line = dFrame.getMsgPayload();
@@ -152,11 +154,10 @@ class EchoThread extends Thread {
 						// message dframe has mac socket mapping
 						System.out.println("Herereee...");
 						Socket s = mac_socket_mapping.get(dFrame.getDesMAC());
-						System.out.println(mac_socket_mapping);
 						sendDframeToClient(s,dFrame);
 					// }
 				}
-				
+				System.out.println(mac_socket_mapping);
 			}
 		
 			catch(IOException i){
@@ -202,7 +203,6 @@ class EchoThread extends Thread {
 		for (Socket other : socketList) {
 			if (other != socket) {
 				// ObjectOutputStream output = new ObjectOutputStream(other.getOutputStream());
-				System.out.println("socket: "+socket);
 				socket_out_stream_mapping.get(other).flush();
 				socket_out_stream_mapping.get(other).reset();
 				socket_out_stream_mapping.get(other).writeObject(dFrame);
