@@ -43,7 +43,8 @@ public class Bridge
 					Thread t = new EchoThread(socket);
 					t.start();
 					System.out.println("accepted");
-					System.out.println("New Thread: "+t.getName()+", Thread ID: "+t.getId());
+					System.out.println(socket);
+					// System.out.println("New Thread: "+t.getName()+", Thread ID: "+t.getId());
 				}
 				else{
 					System.out.println("rejected");
@@ -149,7 +150,9 @@ class EchoThread extends Thread {
 					// }
 					// else{
 						// message dframe has mac socket mapping
+						System.out.println("Herereee...");
 						Socket s = mac_socket_mapping.get(dFrame.getDesMAC());
+						System.out.println(mac_socket_mapping);
 						sendDframeToClient(s,dFrame);
 					// }
 				}
@@ -199,6 +202,7 @@ class EchoThread extends Thread {
 		for (Socket other : socketList) {
 			if (other != socket) {
 				// ObjectOutputStream output = new ObjectOutputStream(other.getOutputStream());
+				System.out.println("socket: "+socket);
 				socket_out_stream_mapping.get(other).flush();
 				socket_out_stream_mapping.get(other).reset();
 				socket_out_stream_mapping.get(other).writeObject(dFrame);
