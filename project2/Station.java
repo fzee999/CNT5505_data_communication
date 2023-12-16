@@ -23,11 +23,12 @@ public class Station {
     List<Hostname> hostnames;
     List<RoutingTable> routingTable;
     List<Interface> interfaces;
-    HashMap<String,String> arpCache = new HashMap<>();
+    public static HashMap<String,String> arpCache = new HashMap<>();
     
     List<Socket> sockets = new ArrayList<>();
     HashMap<Socket,ObjectOutputStream> socket_output_map = new HashMap<>();
     HashMap<Socket,Interface> socket_ip_map = new HashMap<>();
+    HashMap<String, Socket> mac_socket_map = new HashMap<>();
 
     
     //Queue of DATA Packets
@@ -368,8 +369,7 @@ public class Station {
         zero = zero + binary;
         return zero;
     }
-
-    
+ 
 }
 
 class SocketThread extends Thread{
@@ -393,6 +393,7 @@ class SocketThread extends Thread{
 			ObjectOutputStream client_output = new ObjectOutputStream(socket.getOutputStream());
             station.socket_output_map.put(socket, client_output);
             station.socket_ip_map.put(socket, iface);
+            station.mac_socket_map.put(iface.getEthernetAddress(), socket);
 
             //input from server
 			ObjectInputStream server_input = new ObjectInputStream(socket.getInputStream());	
@@ -523,9 +524,12 @@ class SocketThread extends Thread{
                                                         .filter(i -> station.interfaces.get(i).ipAddress.equals(dFrame.getDesIPAddress()))
                                                         .findFirst()
                                                         .orElse(-1);
-
+                                
                                 // if (dFrame.getDesIPAddress().equals(interfaces.get(0).getIpAddress())) {
                                 System.out.println("IP_index: "+ip_index);
+                                if (!station.mac_socket_map.keySet().contains(dFrame.getSrcMAC())) {
+                                    station.mac_socket_map.put(dFrame.getSrcMAC(), socket);
+                                }
                                 if (ip_index!=-1) {                                    
                                     //Add src mac address to ARPCache
                                     if(!station.arpCache.containsKey(dFrame.getSrcIPAddress())){
@@ -533,19 +537,30 @@ class SocketThread extends Thread{
                                     }
 
                                     if (type.equalsIgnoreCase("message")) {
+                                        if (!station.mac_socket_map.keySet().contains(dFrame.getSrcMAC())) {
+                                            station.mac_socket_map.put(dFrame.getSrcMAC(), socket);
+                                        }
                                         System.out.println("Client "+dFrame.getSrcStationName()+": "+dFrame.getMsgPayload()); 
                                     }
                                     else if (type.equalsIgnoreCase("arprequest")) {
                                         DataFrame arpPacket = new DataFrame();
+            
                                         arpPacket.setSrcIPAddress(dFrame.getDesIPAddress());
                                         arpPacket.setDesIPAddress(dFrame.getSrcIPAddress());
                                         arpPacket.setDesMAC(dFrame.getSrcMAC());
                                         //get mac address from interface file
                                         arpPacket.setSrcMAC(station.interfaces.get(ip_index).getEthernetAddress());
                                         arpPacket.setType("arpreply");
+                                        if (!station.mac_socket_map.keySet().contains(arpPacket.getSrcMAC())) {
+                                            station.mac_socket_map.put(arpPacket.getSrcMAC(), socket);
+                                        }
                                         client_output.writeObject(arpPacket);
+                                        
                                     }
                                     else if (type.equalsIgnoreCase("arpreply")){
+                                        if (!station.mac_socket_map.keySet().contains(dFrame.getSrcMAC())) {
+                                            station.mac_socket_map.put(dFrame.getSrcMAC(), socket);
+                                        }
                                         DataFrame dFrame2 = station.dFrameQueue.remove(0);
                                         dFrame2.setDesMAC(dFrame.getSrcMAC());
                                         client_output.flush();
@@ -558,6 +573,7 @@ class SocketThread extends Thread{
                                     //send packet to next hopIP
                                     //else if 0.0.0.0 send to des or send arp request
                                     // Find next hop IP using matching binary
+                                    
                                     String[] net_prefixes = new String[station.routingTable.size()];
                                     int i = 0;
                                     for (RoutingTable routingTableEntry : station.routingTable) {
@@ -575,23 +591,34 @@ class SocketThread extends Thread{
                                         next_hop_IP = dFrame.getDesIPAddress();
                                     }
                                     if (station.arpCache.size()>0 && station.arpCache.containsKey(next_hop_IP)) {
-                                        dFrame.setDesMAC(station.arpCache.get(next_hop_IP));
-                                        client_output.writeObject(dFrame);
+                                        dFrame.setDesMAC(Station.arpCache.get(next_hop_IP));
+                                        System.out.println(Station.arpCache);
+                                        System.out.println(socket);
+                                        System.out.println(station.socket_output_map.get(socket));
+                                        // client_output.writeObject(dFrame);
+                                        Socket s = station.mac_socket_map.get(dFrame.getDesMAC());
+                                        System.out.println(station.mac_socket_map);
+                                        station.socket_output_map.get(s).writeObject(dFrame);
                                     }
                                     // else send a arp request to next hop IP
                                     else{
+                                        System.out.println("");
                                         station.dFrameQueue.add(dFrame);
                                         for(Socket s: station.socket_output_map.keySet()){
                                             if(s!=socket){
                                                 station.socket_output_map.get(s).reset();
                                                 DataFrame arpPacket = new DataFrame();
+                                                
                                                 arpPacket.setType("arprequest");
                                                 arpPacket.setDesIPAddress(next_hop_IP);
                                                 arpPacket.setDesMAC("FF:FF:FF:FF:FF");
                                                 arpPacket.setSrcIPAddress(station.socket_ip_map.get(s).getIpAddress());
                                                 arpPacket.setSrcMAC(station.socket_ip_map.get(s).getEthernetAddress());
+                                                if (!station.mac_socket_map.keySet().contains(arpPacket.getSrcMAC())) {
+                                                    station.mac_socket_map.put(arpPacket.getSrcMAC(), socket);
+                                                }
                                                 System.out.println(arpPacket);
-                                                System.out.println("socket map: "+station.socket_output_map);
+                                                System.out.println(s);
                                                 // sendDFrameToClients(s, dFrame, station.socket_output_map);
                                                 station.socket_output_map.get(s).writeObject(arpPacket); 
                                             }

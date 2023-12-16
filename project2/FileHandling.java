@@ -140,7 +140,7 @@ public class FileHandling {
 
             String line;
             while ((line = br.readLine()) != null) {
-                String[] arr = line.split("[\\t]|[ ]+"); 
+                String[] arr = line.split("[\t| ]+"); 
                 Hostname hostname = new Hostname(arr[0],arr[1]);
                 hostnames.add(hostname);
             }
@@ -164,7 +164,7 @@ public class FileHandling {
 
             String line;
             while ((line = br.readLine()) != null) {
-                String[] arr = line.strip().split("[\\t]|[ ]+"); 
+                String[] arr = line.strip().split("[\s]+"); 
                 RoutingTable routingTableEntry = new RoutingTable(arr[0],arr[1],arr[2],arr[3]);
                 routingTable.add(routingTableEntry);
             }
@@ -188,8 +188,10 @@ public class FileHandling {
 
             String line;
             while ((line = br.readLine()) != null) {
-                String[] arr = line.strip().split("[\\t]|[ ]+"); 
+                String[] arr = line.strip().split("[\s]+"); 
+                System.out.println(arr[0]);
                 Interface interface1 = new Interface(arr[0],arr[1],arr[2],arr[3],arr[4]);
+                System.out.println(interface1);
                 interfaces.add(interface1);
             }
 

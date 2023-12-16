@@ -125,9 +125,6 @@ class EchoThread extends Thread {
 			try{
 				DataFrame dFrame = (DataFrame)client_input.readObject();
 				System.out.println(dFrame);
-				for (String key : mac_socket_mapping.keySet()) {
-					System.out.println(key + " : " + mac_socket_mapping.get(key));
-				}
 				
 				if (dFrame.getType().equalsIgnoreCase("arpreply")) {
 					if (!mac_socket_mapping.containsKey(dFrame.getSrcMAC())) {
@@ -140,6 +137,7 @@ class EchoThread extends Thread {
 					if (!mac_socket_mapping.containsKey(dFrame.getSrcMAC())) {
 						mac_socket_mapping.put(dFrame.getSrcMAC(), socket);
 					}
+					System.out.println(mac_socket_mapping);
 					sendDFrameToClients(dFrame);
 				}
 				else if(dFrame.getType().equalsIgnoreCase("message")){
